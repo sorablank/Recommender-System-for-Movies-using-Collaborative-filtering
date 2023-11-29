@@ -14,7 +14,7 @@ recommendations_subset = recommendations.sample(frac=0.01, random_state=42)
 all_genres = set(genre for genres in recommendations_subset['genres_list'] for genre in genres)
 
 # Streamlit App for Content-Based Filtering Search
-st.title('Content-Based Filtering Search')
+st.title('Recommender System - Hybrid Method - Content Boosted Collaborative Filtering')
 
 # Get user input (userId and selected genres) for content-based filtering
 user_id_content = st.number_input('Enter your user ID:', min_value=1, max_value=recommendations_subset['userId'].max(), value=1, step=1)
@@ -54,25 +54,59 @@ if content_based_button:
         # Filter movies based on the selected genres
         selected_genre_movies = [index for index, score in sim_scores if any(g.lower() in [genre.lower() for genre in recommendations_subset.iloc[index]['genres_list']] for g in selected_genres)]
 
-        # Display up to 10 movies that match the selected genres
+        # Display up to 5 movies that match the selected genres
         count = 0
+        selected_movies = []
         for movie_index in selected_genre_movies:
-            if count >= 10:
+            if count >= 5:
                 break
-            movie_info = recommendations_subset.iloc[movie_index]
-            st.image(movie_info['hyperlinks'], width=200, caption=f"Rating: {movie_info['vote_average']}")
-            st.write(f"Title: {movie_info['title']}")
-            st.write(f"Overview: {movie_info['overview']}")
-            st.write(f"Rating: {movie_info['vote_average']}")
-            st.write("---")
-            count += 1
+
+            # Check if the movie index is not in the list of selected movies
+            if movie_index not in selected_movies:
+                selected_movies.append(movie_index)
+
+                movie_info = recommendations_subset.iloc[movie_index]
+
+                # Check if the image URL is valid before displaying
+                if not pd.isnull(movie_info['hyperlinks']):
+                    st.image(movie_info['hyperlinks'], width=200, caption=f"Rating: {movie_info['vote_average']}")
+                else:
+                    st.write("Image not available")
+
+                st.write(f"Title: {movie_info['title']}")
+                st.write(f"Overview: {movie_info['overview']}")
+                st.write(f"Rating: {movie_info['vote_average']}")
+                st.write("---")
+                count += 1
     else:
-        
-        random_movies = recommendations_subset[recommendations_subset['genres_list'].apply(lambda x: any(g.lower() in [genre.lower() for genre in x] for g in selected_genres))]
-        random_movies = random_movies.sample(n=10, random_state=42)
+        # Initialize a list to keep track of selected movies
+        selected_movies = []
+
+        # Get the next set of 5 random movies based on the number of searches made
+        start_index = st.session_state.get('search_count', 0) * 5
+        end_index = start_index + 5
+        random_movies = recommendations_subset[start_index:end_index].sample(frac=1, random_state=42)
+
+        # Iterate over the shuffled DataFrame
+        count = 0
         for _, movie_info in random_movies.iterrows():
-            st.image(movie_info['hyperlinks'], width=200, caption=f"Rating: {movie_info['vote_average']}")
-            st.write(f"Title: {movie_info['title']}")
-            st.write(f"Overview: {movie_info['overview']}")
-            st.write(f"Rating: {movie_info['vote_average']}")
-            st.write("---")
+            # Check if the movie index is not in the list of selected movies
+            if movie_info.name not in selected_movies:
+                selected_movies.append(movie_info.name)
+
+                # Check if the image URL is valid before displaying
+                if not pd.isnull(movie_info['hyperlinks']):
+                    st.image(movie_info['hyperlinks'], width=200, caption=f"Rating: {movie_info['vote_average']}")
+                else:
+                    st.write("Image not available")
+
+                st.write(f"Title: {movie_info['title']}")
+                st.write(f"Overview: {movie_info['overview']}")
+                st.write(f"Rating: {movie_info['vote_average']}")
+                st.write("---")
+                count += 1
+                if count >= 5:
+                    break
+
+        # Increment the search count in the session state
+        st.session_state.search_count = st.session_state.get('search_count', 0) + 1
